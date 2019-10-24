@@ -4,9 +4,7 @@
 from pprint import pprint 
 from jnpr.junos import Device
 from os.path import dirname, join
-from lxml import etree
 from jnpr.junos.utils.config import Config
-import xml.etree.ElementTree as ET
 import getpass
 import yaml
 
@@ -90,46 +88,32 @@ for aLine in cmd:
     setcommands += aLine
 
 try: 
-    if user_input == '1':
-        print ('Configuring RE protection on devices that do not have filter configured')
+    if user_input == '1' or user_input == '2':
+        if user_input == '1': 
+            print ('Configuring RE protection on devices that do not have filter configured')
+        else:
+            print ('Configuring & Re-configuring RE protection on all devices')
         try:
             for aDevice in aListofDevice: 
-                if aDevice['filterConfigured'] == 'N':
+                if not(user_input == '1' and aDevice['filterConfigured'] == 'Y'):
                     print('Configuring RE protection on ' + aDevice['IP'])
                     #use port 22 if 830 does not work/set system services netconf ssh is not configured
                     dev = Device(host=aDevice['IP'], user=userID, password=userPW, port="22") 
                     dev.open()
                     cu = Config (dev)
                     #cu.lock()
+                    if user_input == '2':
+                        try:
+                            cu.load("delete interfaces lo0 unit 0 family inet filter input", format="set")
+                            cu.load("delete firewall filter inet filter protect-re", format="set")
+                        except Exception as e: 
+                            pass #do nothing & don't display exception
                     result = cu.load(setcommands, format="set")
                     #cu.pdiff()
                     cu.commit()
                     #cu.unlock()
                     print('Configured RE protection on ' + aDevice['IP'])
                     dev.close()
-        except Exception as e:
-            print (e)
-    elif user_input == '2':
-        print ('Configuring & Re-configuring RE protection on all devices')
-        try:
-            for aDevice in aListofDevice: 
-                print('Configuring RE protection on ' + aDevice['IP'])
-                #use port 22 if 830 does not work/set system services netconf ssh is not configured
-                dev = Device(host=aDevice['IP'], user=userID, password=userPW, port="22") 
-                dev.open()
-                cu = Config (dev)
-                #cu.lock()
-                try:
-                    cu.load("delete interfaces lo0 unit 0 family inet filter input", format="set")
-                    cu.load("delete firewall filter inet filter protect-re", format="set")
-                except Exception as e: 
-                    pass #do nothing
-                result = cu.load(setcommands, format="set")
-                #cu.pdiff()
-                cu.commit()
-                #cu.unlock()
-                print('Configured RE protection on ' + aDevice['IP'])
-                dev.close()
         except Exception as e:
             print (e)
     else:
